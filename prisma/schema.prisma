@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  category      String         @default("GEN")
+  dailyGoalMin  Int            @default(240)
+  avatarColor   String         @default("#6366f1")
+  xp            Int            @default(0)
+  createdAt     DateTime       @default(now())
+  targets       ExamTarget[]
+  topics        TopicProgress[]
+  attempts      Attempt[]
+  tasks         PlannerTask[]
+  sessions      StudySession[]
+  notifications Notification[]
+  bookmarks     Bookmark[]
+}
+
+model ExamTarget {
+  id        String    @id @default(cuid())
+  userId    String
+  examSlug  String
+  examDate  DateTime?
+  primary   Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, examSlug])
+}
+
+model TopicProgress {
+  id        String   @id @default(cuid())
+  userId    String
+  topicId   String
+  status    String   @default("not_started") // not_started | learning | revising | mastered
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId])
+}
+
+model Attempt {
+  id           String    @id @default(cuid())
+  userId       String
+  examSlug     String
+  kind         String // full | pyp | sectional | topic | daily
+  title        String
+  seed         Int
+  status       String    @default("in_progress") // in_progress | submitted
+  questions    String // JSON snapshot incl. answers
+  responses    String    @default("[]") // JSON
+  score        Float     @default(0)
+  maxScore     Float     @default(0)
+  correct      Int       @default(0)
+  wrong        Int       @default(0)
+  skipped      Int       @default(0)
+  timeTakenSec Int       @default(0)
+  durationSec  Int       @default(0)
+  summary      String    @default("{}") // JSON section/topic stats
+  startedAt    DateTime  @default(now())
+  submittedAt  DateTime?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, submittedAt])
+}
+
+model PlannerTask {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime
+  title       String
+  type        String   @default("study") // study | mock | revision | exam
+  examSlug    String?
+  subject     String?
+  durationMin Int      @default(60)
+  done        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model StudySession {
+  id        String   @id @default(cuid())
+  userId    String
+  day       String // YYYY-MM-DD (IST)
+  minutes   Int
+  kind      String   @default("focus") // focus | mock | reading
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, day])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  kind      String   @default("info") // info | reminder | achievement | warning
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  key       String
+  question  String // JSON
+  note      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+}
