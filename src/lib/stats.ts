@@ -1,5 +1,5 @@
 import "server-only";
-import { examBySlug, referenceCutoff, totalMarks } from "@/data/exams";
+import { examBySlug, examSchedule, referenceCutoff, totalMarks } from "@/data/exams";
 import { SUBJECTS, TOPICS } from "@/data/syllabus";
 import type { SubjectId } from "@/data/types";
 import { addDays, dayKey, daysBetween } from "./dates";
@@ -121,8 +121,12 @@ export async function getDashboard(userId: string, category: string) {
   const examCards = targets.flatMap((t) => {
     const exam = examBySlug(t.examSlug);
     if (!exam) return [];
-    const dateKey = t.examDate ? dayKey(t.examDate) : exam.nextExam ?? null;
-    const daysLeft = dateKey ? daysBetween(today, dateKey) : null;
+    const sched = examSchedule(exam.slug, today);
+    const dateKey = t.examDate ? dayKey(t.examDate) : sched?.date ?? null;
+    const ongoing = !t.examDate && !!sched?.ongoing;
+    const daysLeft = dateKey ? Math.max(0, daysBetween(today, dateKey)) : null;
+    const dateText = t.examDate ? null : sched ? `${sched.event.stage}: ${sched.text}` : null;
+    const dateStatus: "yours" | "confirmed" | "tentative" | "none" = t.examDate ? "yours" : sched ? sched.status : "none";
     const mine = fullMocks.filter((a) => a.examSlug === exam.slug);
     const last3 = mine.slice(0, 3);
     const avgPct = last3.length ? last3.reduce((a, x) => a + x.score / x.maxScore, 0) / last3.length : 0;
@@ -139,7 +143,9 @@ export async function getDashboard(userId: string, category: string) {
       color: exam.color,
       primary: t.primary,
       dateKey,
-      tentative: !t.examDate,
+      dateText,
+      dateStatus,
+      ongoing,
       daysLeft,
       mocksTaken: mine.length,
       bestPct: mine.length ? Math.round(Math.max(...mine.map((x) => x.score / x.maxScore)) * 100) : null,

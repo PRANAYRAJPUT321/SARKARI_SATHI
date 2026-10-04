@@ -1,12 +1,16 @@
 import { Award, BookOpen, CalendarDays, CheckCircle2, ClipboardList, Flame, Target, Timer, TrendingUp, Zap } from "lucide-react";
 import Link from "next/link";
 import { ScoreTrend, SubjectRadar, WeeklyBars } from "@/components/charts";
+import { PushPrompt } from "@/components/PushToggle";
 import { TaskList } from "@/components/TaskList";
 import { Badge, Card, Empty, Progress, Ring, Stat } from "@/components/ui";
+import { CALENDAR_VERIFIED_ON, eventDateText, upcomingEvents } from "@/data/calendar";
+import { examBySlug } from "@/data/exams";
 import { requireUser } from "@/lib/auth";
 import { coachAdvice } from "@/lib/coach";
-import { dayKey, fmtDuration, greeting, istStart, prettyDate } from "@/lib/dates";
+import { dayKey, daysBetween, fmtDuration, greeting, istStart, prettyDate } from "@/lib/dates";
 import { prisma } from "@/lib/db";
+import { vapidPublicKey } from "@/lib/push";
 import { quoteOfDay } from "@/lib/quotes";
 import { badgesFor, getDashboard, levelFor } from "@/lib/stats";
 
@@ -46,8 +50,10 @@ export default async function Dashboard() {
               {greeting()}, {first}! {d.streak >= 3 ? "🔥" : "👋"}
             </h1>
             <p className="mt-2 max-w-2xl text-white/85">
-              {primary?.daysLeft != null && primary.daysLeft >= 0
-                ? `${primary.daysLeft} days to ${primary.short}${primary.tentative ? " (tentative)" : ""}. Today's mission: ${primary.mocksPerDay} mock${primary.mocksPerDay > 1 ? "s" : ""}, ${Math.round(goal / 60)} hours of focused study and zero excuses.`
+              {primary?.ongoing
+                ? `${primary.short} is underway (${primary.dateText}). Today's mission: revise, take a sectional and stay calm –`
+                : primary?.daysLeft != null && primary.daysLeft >= 0
+                ? `${primary.daysLeft} days to ${primary.short}${primary.dateStatus === "tentative" ? " (official calendar, tentative)" : ""}. Today's mission: ${primary.mocksPerDay} mock${primary.mocksPerDay > 1 ? "s" : ""}, ${Math.round(goal / 60)} hours of focused study and zero excuses.`
                 : `Today's mission: ${Math.round(goal / 60)} hours of focused study. Every mock you take today is a mark you won't lose in the exam.`}
             </p>
             <blockquote className="mt-4 border-l-2 border-saffron-400 pl-3 text-sm italic text-white/80">
@@ -80,6 +86,8 @@ export default async function Dashboard() {
         </div>
       </section>
 
+      <PushPrompt vapidKey={vapidPublicKey} />
+
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label="Study streak" value={`${d.streak} 🔥`} sub={`Best: ${d.bestStreak} days`} icon={<Flame size={20} />} accent="var(--s2)" />
@@ -108,13 +116,15 @@ export default async function Dashboard() {
                       <span className="text-lg font-extrabold">{c.short}</span>
                       {c.primary && <Badge color="var(--s2)">Primary</Badge>}
                     </div>
-                    <div className="faint text-xs">{c.dateKey ? `${prettyDate(c.dateKey + "T00:00:00+05:30")}${c.tentative ? " · tentative" : ""}` : "Date not set"}</div>
+                    <div className="faint text-xs">
+                      {c.dateStatus === "yours" && c.dateKey ? `Your date: ${prettyDate(c.dateKey + "T00:00:00+05:30")}` : c.dateText ? `${c.dateText}${c.dateStatus === "tentative" ? " · tentative" : " · official"}` : "Next exam: not announced yet"}
+                    </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-3xl font-extrabold leading-none" style={{ color: c.daysLeft != null && c.daysLeft <= 15 ? "var(--critical)" : "var(--ink)" }}>
-                      {c.daysLeft != null ? Math.max(0, c.daysLeft) : "—"}
+                    <div className="text-3xl font-extrabold leading-none" style={{ color: c.ongoing || (c.daysLeft != null && c.daysLeft <= 15) ? "var(--critical)" : "var(--ink)" }}>
+                      {c.ongoing ? "Live" : c.daysLeft != null ? c.daysLeft : "—"}
                     </div>
-                    <div className="faint text-[11px]">days left</div>
+                    <div className="faint text-[11px]">{c.ongoing ? "exam window" : c.daysLeft != null ? "days left" : "date TBA"}</div>
                   </div>
                 </div>
                 <div className="mt-4 flex items-center gap-4">
@@ -136,6 +146,25 @@ export default async function Dashboard() {
           </div>
         )}
       </div>
+
+      <Card title="📅 Upcoming exams (official dates)" subtitle={`Published by IBPS, SSC & RRB · verified ${prettyDate(CALENDAR_VERIFIED_ON + "T00:00:00+05:30")}`} action={<Link href="/planner" className="text-xs font-semibold text-brand-600">Open calendar →</Link>}>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {upcomingEvents(today).slice(0, 6).map((ev) => {
+            const ex = examBySlug(ev.examSlug);
+            const mine = user.targets.some((t) => t.examSlug === ev.examSlug);
+            const left = daysBetween(today, ev.start);
+            return (
+              <Link key={ev.id} href={`/exams/${ev.examSlug}`} className="flex items-center gap-3 rounded-xl border p-3 transition hairline hover:bg-[var(--surface-2)]">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xs font-extrabold text-white" style={{ background: ex?.color }}>{left <= 0 ? "LIVE" : `${left}d`}</div>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-bold">{ex?.short} · {ev.stage}{mine && " ★"}</div>
+                  <div className="faint text-xs">{eventDateText(ev)} · {ev.status === "confirmed" ? "official" : "tentative"}</div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Coach */}

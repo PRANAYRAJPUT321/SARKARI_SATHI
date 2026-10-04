@@ -1,10 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { HelpBot } from "@/components/HelpBot";
+import { SWRegister } from "@/components/pwa/SWRegister";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "Sarkari Sathi – Govt Exam Preparation", template: "%s · Sarkari Sathi" },
-  description: "Mock tests, previous-year pattern papers, cut-offs, syllabus tracker and a smart study planner for SBI, IBPS, RBI, SSC, RRB, LIC and IB exams.",
+  description: "Mock tests, previous-year pattern papers, cut-offs, syllabus tracker and a smart study planner for SBI, IBPS, RBI, SSC, RRB, LIC and IB exams. Built by Pranay.",
   applicationName: "Sarkari Sathi",
+  authors: [{ name: "Pranay" }],
+  creator: "Pranay",
+  manifest: "/manifest.webmanifest",
+  icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/favicon-32.png", sizes: "32x32" }], apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Sarkari Sathi", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
@@ -21,9 +28,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
       </head>
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        <SWRegister />
+        {children}
+        <HelpBot />
+      </body>
     </html>
   );
 }

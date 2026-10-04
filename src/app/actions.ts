@@ -338,3 +338,13 @@ export async function deleteAccountDataAction() {
   await destroySession();
   redirect("/");
 }
+
+export async function updatePushPrefsAction(prefs: { morningPush?: boolean; taskPush?: boolean }) {
+  const user = await requireUser();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { ...(typeof prefs.morningPush === "boolean" ? { morningPush: prefs.morningPush } : {}), ...(typeof prefs.taskPush === "boolean" ? { taskPush: prefs.taskPush } : {}) },
+  });
+  revalidatePath("/notifications");
+  revalidatePath("/profile");
+}

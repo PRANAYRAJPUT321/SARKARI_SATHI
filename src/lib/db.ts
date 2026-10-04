@@ -1,21 +1,29 @@
 import { PrismaClient } from "@prisma/client";
-import { ensureDatabase, schedulePersist } from "./db-sync";
+import { ensureDatabase, queryEnded, queryStarted, refreshDatabase, schedulePersist, syncIfStale } from "./db-sync";
 
 const WRITES = new Set(["create", "createMany", "createManyAndReturn", "update", "updateMany", "upsert", "delete", "deleteMany"]);
 
 function createClient() {
   const base = new PrismaClient();
-  return base.$extends({
+  const client = base.$extends({
     query: {
       async $allOperations({ model, operation, args, query }) {
+        const write = WRITES.has(operation);
         await ensureDatabase(base);
-        const result = await query(args);
-        // test autosaves are frequent and also kept in the browser – they don't trigger an upload on their own
-        if (WRITES.has(operation)) schedulePersist(base, !(model === "Attempt" && operation === "updateMany"));
-        return result;
+        await syncIfStale(base, write ? 15_000 : 300_000);
+        queryStarted();
+        try {
+          const result = await query(args);
+          // test autosaves are frequent and also kept in the browser – they don't trigger an upload on their own
+          if (write) schedulePersist(base, !(model === "Attempt" && operation === "updateMany"));
+          return result;
+        } finally {
+          queryEnded();
+        }
       },
     },
   });
+  return Object.assign(client, { refresh: () => refreshDatabase(base) });
 }
 
 const g = globalThis as unknown as { prisma?: ReturnType<typeof createClient> };

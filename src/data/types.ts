@@ -70,9 +70,6 @@ export interface Exam {
   eligibility: string;
   ageLimit: string;
   selection: string[];
-  /** tentative next exam date (ISO) – user can override */
-  nextExam?: string;
-  nextExamNote?: string;
   cutoff: { unit: number; note: string; rows: CutoffRow[]; source: string };
   tips: string[];
   color: string;

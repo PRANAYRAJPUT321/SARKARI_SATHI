@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { Credit } from "../Credit";
+import { InstallButton } from "../pwa/InstallButton";
+import { ThemeToggle } from "../ThemeToggle";
 
 const QUOTES = [
   "“Success is the sum of small efforts, repeated day in and day out.”",
@@ -12,7 +15,10 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
       <div className="hero-gradient relative hidden flex-col justify-between p-10 text-white lg:flex">
         <Link href="/" className="flex items-center gap-2.5">
           <img src="/icon.svg" alt="" className="h-10 w-10" />
-          <span className="text-xl font-extrabold">Sarkari Sathi</span>
+          <div className="leading-tight">
+            <div className="text-xl font-extrabold">Sarkari Sathi</div>
+            <div className="text-[11px] font-semibold text-white/75">Built by Pranay</div>
+          </div>
         </Link>
         <div>
           <h2 className="text-4xl font-extrabold leading-tight">Your daily companion to a<br />Sarkari Naukri.</h2>
@@ -25,12 +31,20 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
         </div>
         <p className="text-sm italic text-white/70">{QUOTES[new Date().getDate() % QUOTES.length]}</p>
       </div>
-      <div className="flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-lg">
-          <Link href="/" className="mb-8 flex items-center gap-2 lg:hidden">
+      <div className="flex flex-col p-6 sm:p-10">
+        <div className="flex items-center justify-end gap-2">
+          <Link href="/" className="mr-auto flex items-center gap-2 lg:hidden">
             <img src="/icon.svg" alt="" className="h-9 w-9" />
-            <span className="text-lg font-extrabold">Sarkari Sathi</span>
+            <div className="leading-tight">
+              <div className="text-lg font-extrabold">Sarkari Sathi</div>
+              <div className="faint text-[11px] font-semibold">Built by Pranay</div>
+            </div>
           </Link>
+          <Credit className="hidden sm:inline-flex" />
+          <InstallButton />
+          <ThemeToggle />
+        </div>
+        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center py-8">
           <h1 className="text-3xl font-extrabold tracking-tight">{title}</h1>
           <p className="muted mb-8 mt-1">{subtitle}</p>
           {children}

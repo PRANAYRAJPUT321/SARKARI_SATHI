@@ -1,4 +1,5 @@
 import type { Exam } from "./types";
+import { eventDateText, nextEventFor } from "./calendar";
 
 /**
  * Exam patterns, marking schemes and previous-year cut-offs.
@@ -17,7 +18,7 @@ export const EXAMS: Exam[] = [
     category: "Banking",
     family: "bank",
     stage: "Prelims",
-    officialSite: "https://sbi.co.in/web/careers",
+    officialSite: "https://sbi.bank.in/web/careers",
     durationMin: 60,
     sectionalTiming: true,
     options: 5,
@@ -31,8 +32,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation in any discipline (final-year students may apply provisionally).",
     ageLimit: "21–30 years (relaxation: OBC 3, SC/ST 5, PwBD 10 years)",
     selection: ["Prelims (100 marks, qualifying)", "Mains (Objective 200 + Descriptive 50)", "Psychometric Test, Group Exercise & Interview"],
-    nextExam: "2027-03-08",
-    nextExamNote: "Tentative – SBI PO prelims are usually held in Feb–March. Update once notified.",
     cutoff: {
       unit: 100,
       note: "Prelims overall cut-off (out of 100).",
@@ -77,8 +76,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation in any discipline.",
     ageLimit: "20–30 years (relaxation as per rules)",
     selection: ["Prelims (100 marks)", "Mains (200 + 25 descriptive)", "Interview (100 marks) – final merit Mains:Interview = 80:20"],
-    nextExam: "2027-08-21",
-    nextExamNote: "IBPS PO 2026 prelims were held on 22–23 Aug 2026 (Mains 4 Oct 2026). Next cycle tentatively Aug 2027.",
     cutoff: {
       unit: 100,
       note: "Prelims overall cut-off (out of 100). Sectional cut-offs also apply.",
@@ -121,8 +118,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation in any discipline + proficiency in the official language of the state applied for.",
     ageLimit: "20–28 years (relaxation as per rules)",
     selection: ["Prelims (100 marks, qualifying)", "Mains (200 marks) – final merit", "Language Proficiency Test"],
-    nextExam: "2026-10-10",
-    nextExamNote: "IBPS calendar 2026-27: Prelims 10–11 Oct 2026, Mains 27 Dec 2026 (tentative).",
     cutoff: {
       unit: 100,
       note: "Prelims cut-offs are state-wise. General-category cut-offs for three representative states.",
@@ -157,7 +152,7 @@ export const EXAMS: Exam[] = [
     category: "Banking",
     family: "bank",
     stage: "Prelims",
-    officialSite: "https://sbi.co.in/web/careers",
+    officialSite: "https://sbi.bank.in/web/careers",
     durationMin: 60,
     sectionalTiming: true,
     options: 5,
@@ -171,8 +166,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation in any discipline + local language proficiency.",
     ageLimit: "20–28 years",
     selection: ["Prelims (qualifying)", "Mains (200 marks)", "Local Language Proficiency Test"],
-    nextExam: "2027-01-24",
-    nextExamNote: "Tentative – update once SBI notifies.",
     cutoff: {
       unit: 100,
       note: "State-wise prelims cut-off, General category.",
@@ -211,8 +204,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation; local language proficiency.",
     ageLimit: "18–30 years",
     selection: ["Prelims (80 marks)", "Mains (200 marks)", "Interview"],
-    nextExam: "2026-11-21",
-    nextExamNote: "IBPS calendar 2026-27: Prelims 21–22 Nov 2026, Mains 20 Dec 2026 (tentative).",
     cutoff: {
       unit: 80,
       note: "State-wise prelims cut-off (out of 80), General category.",
@@ -256,8 +247,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation; local language proficiency.",
     ageLimit: "18–28 years",
     selection: ["Prelims (80 marks)", "Mains (200 marks) – final merit"],
-    nextExam: "2026-12-06",
-    nextExamNote: "IBPS calendar 2026-27: Prelims 6, 12 & 13 Dec 2026, Mains 30 Jan 2027 (tentative).",
     cutoff: { unit: 80, note: "State-wise cut-offs – check the official IBPS score-card notice for your state.", source: "https://www.ibps.in", rows: [] },
     tips: ["Clerk-level questions but 45 min for 80 Qs – speed matters. Aim for 65+ attempts."],
     color: "#16a34a",
@@ -288,8 +277,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation with min 60% (50% for SC/ST/PwBD) or Post-graduation with 55%.",
     ageLimit: "21–30 years",
     selection: ["Phase I (200 marks, qualifying)", "Phase II (Economic & Social Issues, English descriptive, Finance & Management)", "Interview"],
-    nextExam: "2027-07-10",
-    nextExamNote: "Tentative – update once RBI notifies.",
     cutoff: {
       unit: 200,
       note: "Phase I aggregate cut-off (out of 200).",
@@ -326,8 +313,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation with 50% marks + local language proficiency.",
     ageLimit: "20–28 years",
     selection: ["Prelims (qualifying)", "Mains (200 marks)", "Language Proficiency Test"],
-    nextExam: "2027-02-20",
-    nextExamNote: "Tentative.",
     cutoff: {
       unit: 100,
       note: "Prelims cut-offs are office-wise. General category shown.",
@@ -371,8 +356,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation (some posts need specific degrees, e.g. JSO needs Statistics/Maths).",
     ageLimit: "18–32 years (post-wise; Income Tax Inspector 18–30)",
     selection: ["Tier 1 (200 marks, qualifying)", "Tier 2 (Paper 1 + skill tests; Paper 2 for JSO)", "Document verification"],
-    nextExam: "2026-10-15",
-    nextExamNote: "SSC calendar 2026-27: Tier 1 window 30 Sep – 30 Oct 2026 (tentative).",
     cutoff: {
       unit: 200,
       note: "Tier 1 cut-off for 'All other posts' (out of 200, normalised).",
@@ -416,8 +399,6 @@ export const EXAMS: Exam[] = [
     eligibility: "12th pass from a recognised board.",
     ageLimit: "18–27 years",
     selection: ["Tier 1 (200 marks)", "Tier 2 (incl. typing/skill test)", "Document verification"],
-    nextExam: "2027-02-15",
-    nextExamNote: "SSC calendar 2026-27: notification 7 Sep 2026, exam early 2027 (tentative).",
     cutoff: {
       unit: 200,
       note: "Tier 1 cut-off for LDC/JSA (out of 200, normalised).",
@@ -456,8 +437,6 @@ export const EXAMS: Exam[] = [
     eligibility: "10th pass.",
     ageLimit: "18–25 years (MTS), 18–27 years (Havaldar)",
     selection: ["Computer Based Exam (2 sessions, 270 marks)", "PET/PST (Havaldar only)", "Document verification"],
-    nextExam: "2027-01-20",
-    nextExamNote: "SSC calendar 2026-27: notification 20 Aug 2026, exam date TBA.",
     cutoff: {
       unit: 270,
       note: "Cut-offs are state/region-wise; national-level 18–25 age group figures shown.",
@@ -490,8 +469,6 @@ export const EXAMS: Exam[] = [
     eligibility: "10th pass.",
     ageLimit: "18–23 years",
     selection: ["CBE (160 marks)", "PET/PST", "Medical examination & DV"],
-    nextExam: "2027-02-01",
-    nextExamNote: "SSC calendar 2026-27: exam window Jan–Mar 2027 (tentative).",
     cutoff: { unit: 160, note: "Cut-offs are force-wise & state-wise. Check the official SSC result PDF for your state.", source: "https://ssc.gov.in", rows: [] },
     tips: ["Matric-level paper – speed + accuracy. Target 70+ correct.", "Start preparing for the physical test (running) in parallel."],
     color: "#4d7c0f",
@@ -519,8 +496,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation.",
     ageLimit: "20–25 years",
     selection: ["Paper 1 (100 marks, 15-min sectional timing)", "PET/PST", "Paper 2 (English)", "Medical examination"],
-    nextExam: "2027-03-15",
-    nextExamNote: "Tentative.",
     cutoff: { unit: 100, note: "New 100-mark pattern – earlier cut-offs (out of 200) are not comparable.", source: "https://ssc.gov.in", rows: [] },
     tips: ["15 minutes per section = 36 seconds per question. Train with sectional timers.", "Don't overstay on any question; the section locks automatically."],
     color: "#334155",
@@ -549,8 +524,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation (graduate posts) / 12th pass (under-graduate posts).",
     ageLimit: "18–33 years (graduate), 18–30 years (UG)",
     selection: ["CBT 1 (screening)", "CBT 2", "Typing skill test / CBAT (post-wise)", "Document verification & medical"],
-    nextExam: "2027-03-01",
-    nextExamNote: "Tentative – check your RRB's website.",
     cutoff: {
       unit: 100,
       note: "Zone-wise CBT-1 cut-offs (normalised) for graduate posts, CEN 01/2019.",
@@ -586,8 +559,6 @@ export const EXAMS: Exam[] = [
     eligibility: "10th pass / ITI / NAC.",
     ageLimit: "18–33 years",
     selection: ["CBT", "Physical Efficiency Test", "Document verification & medical"],
-    nextExam: "2027-04-01",
-    nextExamNote: "Tentative.",
     cutoff: {
       unit: 100,
       note: "Zone-wise final normalised cut-off, 2022 recruitment (CEN RRC-01/2019).",
@@ -627,8 +598,6 @@ export const EXAMS: Exam[] = [
     eligibility: "10th + ITI / Diploma / Degree in Engineering.",
     ageLimit: "18–30 years",
     selection: ["CBT 1", "CBT 2 (Part A + trade Part B)", "CBAT (aptitude test)", "DV & medical"],
-    nextExam: "2027-05-01",
-    nextExamNote: "Tentative.",
     cutoff: { unit: 75, note: "Zone-wise; check the RRB result notice.", source: "https://www.rrbapply.gov.in", rows: [] },
     tips: ["75 Qs in 60 min – 48 seconds per question.", "Science (Physics) carries big weight; revise units, laws and simple machines."],
     color: "#155e75",
@@ -656,8 +625,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Diploma / Degree in Engineering.",
     ageLimit: "18–33 years",
     selection: ["CBT 1 (qualifying)", "CBT 2 (technical)", "DV & medical"],
-    nextExam: "2027-06-01",
-    nextExamNote: "Tentative.",
     cutoff: { unit: 100, note: "Zone-wise; check the RRB result notice.", source: "https://www.rrbapply.gov.in", rows: [] },
     tips: ["CBT 1 is qualifying – secure it with arithmetic + science, then focus on technical CBT 2."],
     color: "#164e63",
@@ -687,8 +654,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation in any discipline.",
     ageLimit: "21–30 years",
     selection: ["Prelims", "Mains", "Interview & medical"],
-    nextExam: "2027-09-01",
-    nextExamNote: "Tentative.",
     cutoff: {
       unit: 70,
       note: "Prelims cut-off out of 70 (English qualifying).",
@@ -723,8 +688,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation with 60% (55% for SC/ST/PwBD).",
     ageLimit: "21–30 years",
     selection: ["Prelims", "Mains (objective + descriptive)", "Interview"],
-    nextExam: "2027-09-15",
-    nextExamNote: "Tentative.",
     cutoff: { unit: 100, note: "Check the official result notice.", source: "https://www.newindia.co.in/recruitment", rows: [] },
     tips: ["Same pattern as SBI PO prelims – any bank PO mock works as practice."],
     color: "#4338ca",
@@ -755,8 +718,6 @@ export const EXAMS: Exam[] = [
     eligibility: "Graduation; knowledge of computers desirable.",
     ageLimit: "18–27 years",
     selection: ["Tier 1 (100 marks, objective)", "Tier 2 (50 marks, descriptive essay + comprehension)", "Interview (100 marks)"],
-    nextExam: "2027-06-15",
-    nextExamNote: "Tentative.",
     cutoff: {
       unit: 100,
       note: "IB does not publish official marks – these are mid-point estimates from candidate-reported scores (2023).",
@@ -793,3 +754,13 @@ export function referenceCutoff(e: Exam, category = "GEN"): { value: number; yea
 }
 
 export const PYP_YEARS = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016];
+
+/**
+ * Next announced exam date for an exam (from the verified calendar), or null when the
+ * conducting body has not announced one yet. Never guessed.
+ */
+export function examSchedule(slug: string, today: string) {
+  const ev = nextEventFor(slug, today);
+  if (!ev) return null;
+  return { event: ev, date: ev.start, ongoing: ev.start <= today, text: eventDateText(ev), status: ev.status };
+}

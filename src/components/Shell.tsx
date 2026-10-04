@@ -8,7 +8,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { logoutAction, markNotificationReadAction } from "@/app/actions";
+import { Credit } from "./Credit";
 import { FocusTimer } from "./FocusTimer";
+import { InstallButton } from "./pwa/InstallButton";
 import { ReminderScheduler } from "./ReminderScheduler";
 
 const NAV = [
@@ -67,7 +69,6 @@ export function Shell({
       localStorage.setItem("theme", next ? "dark" : "light");
     } catch {}
   };
-  const first = user.name.split(" ")[0];
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   const nav = (
@@ -93,7 +94,7 @@ export function Shell({
       <img src="/icon.svg" alt="" className="h-9 w-9" />
       <div className="leading-tight">
         <div className="text-[15px] font-extrabold tracking-tight">Sarkari Sathi</div>
-        <div className="faint text-[11px] font-medium">{first}&apos;s prep companion</div>
+        <div className="faint text-[11px] font-medium">Built by Pranay</div>
       </div>
     </Link>
   );
@@ -152,11 +153,17 @@ export function Shell({
           <button className="btn-ghost p-2 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu size={18} />
           </button>
-          <Link href="/dashboard" className="flex items-center gap-2 lg:hidden">
-            <img src="/icon.svg" alt="" className="h-8 w-8" />
-            <span className="hidden whitespace-nowrap font-extrabold sm:inline">Sarkari Sathi</span>
+          <Link href="/dashboard" className="flex min-w-0 items-center gap-2 lg:hidden">
+            <img src="/icon.svg" alt="" className="h-8 w-8 shrink-0" />
+            <div className="min-w-0 leading-tight">
+              <div className="hidden whitespace-nowrap font-extrabold min-[420px]:block">Sarkari Sathi</div>
+              <div className="faint whitespace-nowrap text-[10px] font-semibold">by Pranay</div>
+            </div>
           </Link>
           <div className="flex-1" />
+          <Credit className="hidden xl:inline-flex" />
+          <InstallButton variant="icon" className="sm:hidden" />
+          <InstallButton className="hidden sm:inline-flex" />
           <FocusTimer />
           <button onClick={toggleTheme} className="btn-ghost p-2.5" aria-label="Toggle dark mode">
             {dark ? <Sun size={17} /> : <Moon size={17} />}

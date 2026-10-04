@@ -9,6 +9,7 @@ import { longDay, monthLabel } from "@/lib/fmt";
 import { TaskList } from "./TaskList";
 
 type Task = { id: string; title: string; type: string; done: boolean; at: string; day: string; examSlug: string | null };
+type CalEvent = { id: string; examSlug: string; short: string; color: string; stage: string; text: string; days: string[]; start: string; end?: string; monthOnly?: boolean; status: "confirmed" | "tentative"; note: string; official: string; mine: boolean };
 const DOT: Record<string, string> = { study: "var(--s1)", mock: "var(--s2)", revision: "var(--s3)", exam: "var(--critical)" };
 const WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -18,7 +19,15 @@ function shiftMonth(m: string, d: number) {
   return dt.toISOString().slice(0, 7);
 }
 
-export function PlannerView({ month, today, tasks, exams, targets }: { month: string; today: string; tasks: Task[]; exams: { slug: string; short: string; next: string | null }[]; targets: { slug: string; date: string | null; primary: boolean }[] }) {
+export function PlannerView({ month, today, tasks, exams, targets, events }: { month: string; today: string; tasks: Task[]; exams: { slug: string; short: string; next: string | null }[]; targets: { slug: string; date: string | null; primary: boolean }[]; events: CalEvent[] }) {
+  const [onlyMine, setOnlyMine] = useState(false);
+  const shownEvents = events.filter((e) => !onlyMine || e.mine);
+  const eventsByDay = useMemo(() => {
+    const m = new Map<string, CalEvent[]>();
+    for (const e of shownEvents) for (const d of e.days) m.set(d, [...(m.get(d) ?? []), e]);
+    return m;
+  }, [shownEvents]);
+  const monthEvents = shownEvents.filter((e) => e.monthOnly && e.start.slice(0, 7) <= month && (e.end ?? e.start).slice(0, 7) >= month);
   const [sel, setSel] = useState(today.startsWith(month) ? today : `${month}-01`);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
@@ -37,7 +46,8 @@ export function PlannerView({ month, today, tasks, exams, targets }: { month: st
     for (const t of tasks) m.set(t.day, [...(m.get(t.day) ?? []), t]);
     return m;
   }, [tasks]);
-  const examDays = new Map(targets.filter((t) => t.date).map((t) => [t.date!, exams.find((e) => e.slug === t.slug)?.short]));
+  // user's own target dates that are not already in the official calendar
+  const examDays = new Map(targets.filter((t) => t.date && !events.some((e) => e.examSlug === t.slug && e.days.includes(t.date!))).map((t) => [t.date!, exams.find((e) => e.slug === t.slug)?.short]));
   const selTasks = byDay.get(sel) ?? [];
   const label = monthLabel(month);
 
@@ -50,6 +60,11 @@ export function PlannerView({ month, today, tasks, exams, targets }: { month: st
             <h2 className="text-lg font-extrabold">{label}</h2>
             <Link href={`/planner?m=${shiftMonth(month, 1)}`} className="btn-ghost p-2" aria-label="Next month"><ChevronRight size={18} /></Link>
           </div>
+          {monthEvents.map((e) => (
+            <div key={e.id} className="mb-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold" style={{ background: `color-mix(in srgb, ${e.color} 14%, transparent)` }}>
+              <span className="h-2 w-2 rounded-full" style={{ background: e.color }} /> 🎯 {e.short} {e.stage}: {e.text} (exact dates not announced)
+            </div>
+          ))}
           <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold faint">{WEEK.map((w) => <div key={w} className="py-1">{w}</div>)}</div>
           <div className="grid grid-cols-7 gap-1">
             {days.map((d) => {
@@ -57,6 +72,7 @@ export function PlannerView({ month, today, tasks, exams, targets }: { month: st
               const done = ts.filter((t) => t.done).length;
               const inMonth = d.startsWith(month);
               const exam = examDays.get(d);
+              const evs = eventsByDay.get(d) ?? [];
               return (
                 <button
                   key={d}
@@ -65,11 +81,24 @@ export function PlannerView({ month, today, tasks, exams, targets }: { month: st
                     "relative flex min-h-[64px] flex-col items-start rounded-xl border p-1.5 text-left transition sm:min-h-[84px]",
                     sel === d ? "border-brand-600 ring-2 ring-brand-500/30" : "hairline hover:bg-[var(--surface-2)]",
                     !inMonth && "opacity-40",
-                    exam && "bg-red-500/10",
+                    (exam || evs.some((e) => e.mine && e.days.length <= 7)) && "bg-red-500/10",
                   )}
                 >
                   <span className={clsx("grid h-6 w-6 place-items-center rounded-full text-xs font-bold", d === today && "bg-brand-600 text-white")}>{Number(d.slice(8))}</span>
                   {exam && <span className="mt-0.5 truncate text-[9px] font-bold text-red-600 sm:text-[10px]">🎯 {exam}</span>}
+                  {evs.slice(0, 2).map((e) => {
+                    // long windows (e.g. a month-long CBT window) are labelled on the first/last day and shown as a thin bar in between
+                    const long = e.days.length > 7;
+                    const edge = d === e.days[0] || d === e.days[e.days.length - 1] || d.endsWith("-01");
+                    return long && !edge ? (
+                      <span key={e.id} title={`${e.short} ${e.stage}: ${e.text}`} className="mt-1 h-1.5 w-full rounded-full opacity-70" style={{ background: e.color }} />
+                    ) : (
+                      <span key={e.id} title={`${e.short} ${e.stage}: ${e.text}`} className="mt-0.5 w-full truncate rounded px-1 text-[9px] font-bold text-white sm:text-[10px]" style={{ background: e.color }}>
+                        {long ? (d === e.days[e.days.length - 1] ? `${e.short} ends` : `${e.short} window`) : e.short}
+                      </span>
+                    );
+                  })}
+                  {evs.length > 2 && <span className="faint text-[9px]">+{evs.length - 2} more</span>}
                   <div className="mt-auto flex flex-wrap gap-0.5">
                     {ts.slice(0, 6).map((t) => <span key={t.id} className="h-1.5 w-1.5 rounded-full" style={{ background: DOT[t.type] ?? DOT.study, opacity: t.done ? 0.35 : 1 }} />)}
                   </div>
@@ -79,7 +108,8 @@ export function PlannerView({ month, today, tasks, exams, targets }: { month: st
             })}
           </div>
           <div className="faint mt-3 flex flex-wrap gap-3 text-[11px]">
-            {Object.entries(DOT).map(([k, c]) => <span key={k} className="flex items-center gap-1 capitalize"><span className="h-2 w-2 rounded-full" style={{ background: c }} />{k}</span>)}
+            {Object.entries(DOT).map(([k, c]) => <span key={k} className="flex items-center gap-1 capitalize"><span className="h-2 w-2 rounded-full" style={{ background: c }} />{k} task</span>)}
+            <span className="flex items-center gap-1"><span className="h-2.5 w-4 rounded bg-slate-500" />official exam date</span>
           </div>
         </section>
 
@@ -157,6 +187,29 @@ export function PlannerView({ month, today, tasks, exams, targets }: { month: st
             </div>
             <button className="btn-primary w-full" disabled={pending}><Plus size={16} /> Add task</button>
           </form>
+        </section>
+        <section className="card text-sm">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="font-bold">📅 Upcoming exams</h3>
+            <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" className="h-3.5 w-3.5 accent-brand-600" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} /> Only my exams</label>
+          </div>
+          {shownEvents.length === 0 ? (
+            <p className="muted text-xs">No officially announced dates for your exams yet.</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {shownEvents.map((e) => (
+                <li key={e.id} className="flex gap-2">
+                  <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: e.color }} />
+                  <div className="min-w-0">
+                    <div className="font-semibold">{e.short} · {e.stage}{e.mine && <span className="ml-1 text-[10px] text-saffron-600">★ my exam</span>}</div>
+                    <div className="text-xs">{e.text} <span className={e.status === "confirmed" ? "text-[var(--good-ink)]" : "faint"}>· {e.status === "confirmed" ? "officially announced" : "official calendar, tentative"}</span></div>
+                    <a href={e.official} target="_blank" rel="noreferrer" className="faint text-[11px] underline">{new URL(e.official).hostname}</a>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="faint mt-3 text-[11px]">Only dates published by IBPS, SSC and RRB are shown. Exams without an announced date are left out on purpose.</p>
         </section>
         <section className="card text-sm">
           <h3 className="mb-2 font-bold">🧠 How toppers plan</h3>

@@ -1,7 +1,9 @@
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import { MarkAllRead } from "@/components/MarkAllRead";
-import { Empty, PageHeader } from "@/components/ui";
+import { PushSettings } from "@/components/PushToggle";
+import { Card, Empty, PageHeader } from "@/components/ui";
+import { vapidPublicKey } from "@/lib/push";
 import { requireUser } from "@/lib/auth";
 import { prettyDate } from "@/lib/dates";
 import { prisma } from "@/lib/db";
@@ -15,7 +17,10 @@ export default async function NotificationsPage() {
   const items = await prisma.notification.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 100 });
   return (
     <div>
-      <PageHeader icon={<Bell />} title="Notifications" subtitle="Reminders, reports and achievements. Allow browser notifications to get alerts while the app is open." action={<MarkAllRead />} />
+      <PageHeader icon={<Bell />} title="Notifications" subtitle="Reminders, reports and achievements – in the app and as push notifications on your phone." action={<MarkAllRead />} />
+      <Card title="📲 Phone & laptop notifications" className="mb-6">
+        <PushSettings vapidKey={vapidPublicKey} morningPush={user.morningPush} taskPush={user.taskPush} />
+      </Card>
       {items.length === 0 ? (
         <Empty title="Nothing yet" icon="🔔" />
       ) : (

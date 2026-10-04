@@ -1,5 +1,5 @@
 import "server-only";
-import { examBySlug } from "@/data/exams";
+import { examBySlug, examSchedule } from "@/data/exams";
 import { dayKey, daysBetween, istHour, istStart } from "./dates";
 import { prisma } from "./db";
 
@@ -28,17 +28,22 @@ export async function ensureDailyNotifications(userId: string) {
   for (const t of targets) {
     const exam = examBySlug(t.examSlug);
     if (!exam) continue;
-    const key = t.examDate ? dayKey(t.examDate) : exam.nextExam;
+    const sched = examSchedule(exam.slug, today);
+    if (!t.examDate && sched?.ongoing) {
+      await add(`📝 ${exam.short} ${sched.event.stage} is underway`, `Exam window: ${sched.text}. Check your exam date & admit card on the official website and keep revising daily.`, "warning", `/exams/${exam.slug}`);
+      continue;
+    }
+    const key = t.examDate ? dayKey(t.examDate) : sched?.date;
     if (!key) continue;
     const left = daysBetween(today, key);
-    if (left < 0 || left > 90) continue;
+    if (left < 0 || left > 90) continue; // ongoing windows are covered by the exam-day notice
     const mocks = left <= 15 ? 3 : left <= 45 ? 2 : 1;
     const urgency = left <= 7 ? "warning" : "reminder";
     await add(
       `⏳ ${left} day${left === 1 ? "" : "s"} left for ${exam.short}`,
       left === 0
         ? `Exam day! Stay calm, read every question carefully and trust your preparation. All the best!`
-        : `Target today: ${mocks} full mock${mocks > 1 ? "s" : ""} of ${exam.short} + analysis of every mistake.${t.examDate ? "" : " (Date is tentative – update it in Profile once notified.)"}`,
+        : `Target today: ${mocks} full mock${mocks > 1 ? "s" : ""} of ${exam.short} + analysis of every mistake.${!t.examDate && sched?.status === "tentative" ? " (Date from the official calendar – tentative.)" : ""}`,
       urgency,
       `/mocks/${exam.slug}`,
     );

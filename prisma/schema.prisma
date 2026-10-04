@@ -16,6 +16,8 @@ model User {
   dailyGoalMin  Int            @default(240)
   avatarColor   String         @default("#6366f1")
   xp            Int            @default(0)
+  morningPush   Boolean        @default(true)
+  taskPush      Boolean        @default(true)
   createdAt     DateTime       @default(now())
   targets       ExamTarget[]
   topics        TopicProgress[]
@@ -24,6 +26,7 @@ model User {
   sessions      StudySession[]
   notifications Notification[]
   bookmarks     Bookmark[]
+  pushSubs      PushSubscription[]
 }
 
 model ExamTarget {
@@ -126,4 +129,17 @@ model Bookmark {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, key])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

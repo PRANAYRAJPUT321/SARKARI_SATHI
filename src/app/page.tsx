@@ -2,6 +2,7 @@ import { BarChart3, BellRing, BookOpen, CalendarDays, ClipboardList, Flame, Ligh
 import Link from "next/link";
 import { EXAM_CATEGORIES, EXAMS, PYP_YEARS } from "@/data/exams";
 import { TOPICS } from "@/data/syllabus";
+import { PublicHeader } from "@/components/PublicHeader";
 import { currentUser } from "@/lib/auth";
 
 const FEATURES = [
@@ -22,22 +23,7 @@ export default async function Landing() {
     <div>
       <header className="hero-gradient text-white">
         <div className="mx-auto max-w-6xl px-5 pb-20 pt-6">
-          <nav className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <img src="/icon.svg" alt="" className="h-10 w-10" />
-              <span className="text-xl font-extrabold">Sarkari Sathi</span>
-            </div>
-            <div className="flex gap-2">
-              {user ? (
-                <Link href="/dashboard" className="btn bg-white text-brand-700 hover:bg-white/90">Go to dashboard →</Link>
-              ) : (
-                <>
-                  <Link href="/login" className="btn text-white hover:bg-white/10">Log in</Link>
-                  <Link href="/register" className="btn bg-white text-brand-700 hover:bg-white/90">Sign up free</Link>
-                </>
-              )}
-            </div>
-          </nav>
+          <PublicHeader hero loggedIn={!!user} />
           <div className="mt-16 grid items-center gap-10 lg:grid-cols-2">
             <div>
               <span className="chip bg-white/15 text-white">🇮🇳 Banking · Railways · SSC · RBI · Insurance · IB</span>
@@ -66,9 +52,9 @@ export default async function Landing() {
             </div>
             <div className="relative hidden lg:block">
               <div className="rounded-3xl bg-white/10 p-5 shadow-2xl ring-1 ring-white/20 backdrop-blur">
-                <div className="text-sm text-white/70">Mock report · SBI PO Full Mock 7</div>
+                <div className="text-sm text-white/70">Sample report · SBI PO Full Mock 7</div>
                 <div className="mt-1 text-4xl font-extrabold">68.25 <span className="text-lg font-semibold text-white/60">/ 100</span></div>
-                <div className="mt-1 text-sm text-emerald-300">▲ 6.5 marks above last year&apos;s GEN cut-off (61.75)</div>
+                <div className="mt-1 text-sm text-emerald-300">▲ 6.5 marks above the 2024 GEN cut-off (61.75)</div>
                 <div className="mt-5 space-y-2">
                   {[["English", 76], ["Quants", 61], ["Reasoning", 70]].map(([n, v]) => (
                     <div key={n as string}>
@@ -125,7 +111,11 @@ export default async function Landing() {
           <p className="mx-auto mt-2 max-w-xl text-white/80">Create a free account, pick your exams and let Sarkari Sathi plan your journey.</p>
           <Link href={user ? "/dashboard" : "/register"} className="btn-accent mt-6 px-8 py-3 text-base">Let&apos;s go 🚀</Link>
         </div>
-        <p className="faint mt-8 text-center text-xs">
+        <footer className="mt-10 flex flex-col items-center gap-2 border-t pt-6 text-center text-sm hairline">
+          <div className="flex items-center gap-2 font-semibold"><img src="/icon.svg" alt="" className="h-6 w-6" /> Sarkari Sathi — made with ❤️ by Pranay for government exam aspirants</div>
+          <a href="/Sarkari-Sathi-User-Guide.pdf" className="text-brand-600 underline">Download the user guide (PDF)</a>
+        </footer>
+        <p className="faint mt-4 text-center text-xs">
           Exam patterns and cut-offs are compiled from official notifications and results; always verify with the official website before applying. Practice papers are original questions modelled on each year&apos;s pattern.
         </p>
       </section>

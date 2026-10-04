@@ -6,8 +6,9 @@ import { CutoffTable } from "@/components/CutoffTable";
 import { Badge, Card, STATUS_META } from "@/components/ui";
 import { examBySlug, totalMarks, totalQuestions } from "@/data/exams";
 import { SUBJECTS, TOPICS } from "@/data/syllabus";
+import { eventDateText, upcomingEvents } from "@/data/calendar";
 import { requireUser } from "@/lib/auth";
-import { prettyDate } from "@/lib/dates";
+import { dayKey, prettyDate } from "@/lib/dates";
 import { prisma } from "@/lib/db";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -35,6 +36,7 @@ export default async function ExamDetail({ params }: { params: Promise<{ slug: s
   const marksPer = exam.sections[0].marks / exam.sections[0].questions;
   const negMarks = Math.round(exam.negative * marksPer * 100) / 100;
   const breakEven = exam.negative ? Math.round(1 / exam.negative) : null;
+  const upcoming = upcomingEvents(dayKey(), exam.slug);
 
   return (
     <div className="space-y-6">
@@ -57,15 +59,27 @@ export default async function ExamDetail({ params }: { params: Promise<{ slug: s
             <a href={exam.officialSite} target="_blank" rel="noreferrer" className="btn-ghost"><ExternalLink size={16} /> Official site</a>
           </div>
         </div>
-        {exam.nextExam && (
-          <div className="mt-5 flex items-start gap-2 rounded-xl bg-[var(--surface-2)] p-3 text-sm">
-            <CalendarDays size={18} className="mt-0.5 shrink-0 text-brand-600" />
-            <div>
-              <b>Next exam: {prettyDate((target?.examDate ? target.examDate.toISOString() : exam.nextExam + "T00:00:00+05:30"))}</b>
-              <div className="muted text-xs">{exam.nextExamNote}</div>
-            </div>
+        <div className="mt-5 flex items-start gap-2 rounded-xl bg-[var(--surface-2)] p-3 text-sm">
+          <CalendarDays size={18} className="mt-0.5 shrink-0 text-brand-600" />
+          <div className="min-w-0 flex-1">
+            {upcoming.length ? (
+              <ul className="space-y-2">
+                {upcoming.map((ev) => (
+                  <li key={ev.id}>
+                    <b>{ev.stage}: {eventDateText(ev)}</b> <Badge color={ev.status === "confirmed" ? "var(--good)" : "var(--s4)"}>{ev.status === "confirmed" ? "Official" : "Official calendar · tentative"}</Badge>
+                    <div className="muted text-xs">{ev.note} <a href={ev.official} target="_blank" rel="noreferrer" className="underline">Official site</a></div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <>
+                <b>Next exam date: not announced yet</b>
+                <div className="muted text-xs">We only show dates published by {exam.body}. Check <a href={exam.officialSite} target="_blank" rel="noreferrer" className="underline">{new URL(exam.officialSite).hostname}</a> for the notification; you can set your own target date in Profile.</div>
+              </>
+            )}
+            {target?.examDate && <div className="mt-2 text-xs">Your target date: <b>{prettyDate(target.examDate)}</b></div>}
           </div>
-        )}
+        </div>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-3">

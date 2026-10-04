@@ -1,7 +1,9 @@
 import { User } from "lucide-react";
 import { ProfileForm, TargetsEditor, DangerZone } from "@/components/ProfileForms";
+import { PushSettings } from "@/components/PushToggle";
 import { Card, PageHeader } from "@/components/ui";
-import { EXAMS, examBySlug } from "@/data/exams";
+import { vapidPublicKey } from "@/lib/push";
+import { EXAMS, examSchedule } from "@/data/exams";
 import { requireUser } from "@/lib/auth";
 import { dayKey, prettyDate } from "@/lib/dates";
 import { levelFor } from "@/lib/stats";
@@ -20,11 +22,14 @@ export default async function ProfilePage() {
         </Card>
         <Card title="🎯 Target exams & dates" subtitle="Set the exact date once the exam is notified – countdowns, reminders and your plan use it.">
           <TargetsEditor
-            exams={EXAMS.map((e) => ({ slug: e.slug, short: e.short, next: e.nextExam ?? null }))}
-            initial={user.targets.map((t) => ({ slug: t.examSlug, date: t.examDate ? dayKey(t.examDate) : examBySlug(t.examSlug)?.nextExam ?? null, primary: t.primary }))}
+            exams={EXAMS.map((e) => ({ slug: e.slug, short: e.short, next: examSchedule(e.slug, dayKey())?.date ?? null }))}
+            initial={user.targets.map((t) => ({ slug: t.examSlug, date: t.examDate ? dayKey(t.examDate) : null, primary: t.primary }))}
           />
         </Card>
       </div>
+      <Card title="📲 Notifications" subtitle="Morning plan and task reminders on this device">
+        <PushSettings vapidKey={vapidPublicKey} morningPush={user.morningPush} taskPush={user.taskPush} />
+      </Card>
       <Card title="⚠️ Danger zone">
         <DangerZone />
       </Card>

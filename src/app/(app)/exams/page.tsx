@@ -1,15 +1,16 @@
 import { GraduationCap } from "lucide-react";
 import Link from "next/link";
-import { EXAM_CATEGORIES, EXAMS, totalMarks, totalQuestions } from "@/data/exams";
+import { EXAM_CATEGORIES, EXAMS, examSchedule, totalMarks, totalQuestions } from "@/data/exams";
 import { Badge, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { prettyDate } from "@/lib/dates";
+import { dayKey } from "@/lib/dates";
 
 export const metadata = { title: "Exam Explorer" };
 
 export default async function ExamsPage() {
   const user = await requireUser();
   const mine = new Set(user.targets.map((t) => t.examSlug));
+  const today = dayKey();
   return (
     <div>
       <PageHeader icon={<GraduationCap />} title="Exam Explorer" subtitle="Patterns, marking schemes, syllabus, cut-offs and mocks for every major government exam." />
@@ -34,7 +35,7 @@ export default async function ExamsPage() {
                     <div className="rounded-xl bg-[var(--surface-2)] p-2"><div className="font-extrabold">{totalMarks(e)}</div><div className="faint">marks</div></div>
                   </div>
                   <div className="muted mt-3 text-xs">➖ {e.negativeLabel}</div>
-                  {e.nextExam && <div className="faint mt-1 text-xs">📅 Next: {prettyDate(e.nextExam + "T00:00:00+05:30")} (tentative)</div>}
+                  <div className="faint mt-1 text-xs">📅 {(() => { const s = examSchedule(e.slug, today); return s ? `${s.event.stage}: ${s.text}${s.status === "tentative" ? " (tentative)" : ""}` : "Next exam: not announced yet"; })()}</div>
                 </Link>
               ))}
             </div>

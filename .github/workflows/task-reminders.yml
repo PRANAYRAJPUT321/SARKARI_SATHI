@@ -1,0 +1,16 @@
+name: Task reminders
+
+# Vercel's Hobby plan runs cron jobs once a day, so this workflow pings the
+# reminders endpoint every 10 minutes to deliver planner-task push notifications.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Send due task reminders
+        run: curl -fsS -m 60 "https://sarkari-sathi-blue.vercel.app/api/cron/reminders" || echo "reminder ping failed"
