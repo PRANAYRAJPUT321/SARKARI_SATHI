@@ -81,16 +81,13 @@ export async function updateProfileAction(_: FormState, form: FormData): Promise
 export async function saveTargetsAction(targets: { slug: string; date: string | null; primary: boolean }[]) {
   const user = await requireUser();
   const valid = targets.filter((t) => examBySlug(t.slug));
-  await prisma.$transaction([
-    prisma.examTarget.deleteMany({ where: { userId: user.id, examSlug: { notIn: valid.map((v) => v.slug) } } }),
-    ...valid.map((t) =>
-      prisma.examTarget.upsert({
-        where: { userId_examSlug: { userId: user.id, examSlug: t.slug } },
-        create: { userId: user.id, examSlug: t.slug, examDate: t.date ? istStart(t.date) : null, primary: t.primary },
-        update: { examDate: t.date ? istStart(t.date) : null, primary: t.primary },
-      }),
-    ),
-  ]);
+  await prisma.examTarget.deleteMany({ where: { userId: user.id, examSlug: { notIn: valid.map((v) => v.slug) } } });
+  for (const t of valid)
+    await prisma.examTarget.upsert({
+      where: { userId_examSlug: { userId: user.id, examSlug: t.slug } },
+      create: { userId: user.id, examSlug: t.slug, examDate: t.date ? istStart(t.date) : null, primary: t.primary },
+      update: { examDate: t.date ? istStart(t.date) : null, primary: t.primary },
+    });
   await commitWrites();
   revalidatePath("/", "layout");
 }
@@ -181,8 +178,7 @@ export async function submitTestAction(attemptId: string, responses: Response[])
   const paper = JSON.parse(a.questions) as Paper;
   const summary = gradePaper(paper, responses);
   const xp = xpFor(summary);
-  await prisma.$transaction([
-    prisma.attempt.update({
+  await prisma.attempt.update({
       where: { id: a.id },
       data: {
         status: "submitted",
@@ -196,10 +192,9 @@ export async function submitTestAction(attemptId: string, responses: Response[])
         summary: JSON.stringify(summary),
         submittedAt: new Date(),
       },
-    }),
-    prisma.user.update({ where: { id: user.id }, data: { xp: { increment: xp } } }),
-    prisma.studySession.create({ data: { userId: user.id, day: dayKey(), minutes: Math.max(1, Math.round(summary.timeTakenSec / 60)), kind: "mock" } }),
-  ]);
+    });
+  await prisma.user.update({ where: { id: user.id }, data: { xp: { increment: xp } } });
+  await prisma.studySession.create({ data: { userId: user.id, day: dayKey(), minutes: Math.max(1, Math.round(summary.timeTakenSec / 60)), kind: "mock" } });
   const pct = summary.maxScore ? Math.round((summary.score / summary.maxScore) * 100) : 0;
   await notify(user.id, `📊 Report ready: ${a.title}`, `You scored ${summary.score}/${summary.maxScore} (${pct}%) with ${summary.accuracy}% accuracy. +${xp} XP`, pct >= 60 ? "achievement" : "info", `/results/${a.id}`);
   const count = await prisma.attempt.count({ where: { userId: user.id, status: "submitted" } });
