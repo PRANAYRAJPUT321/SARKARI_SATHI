@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@/lib/auth";
+import { commitWrites, currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function POST(req: Request) {
@@ -13,5 +13,6 @@ export async function POST(req: Request) {
     create: { userId: user.id, endpoint, p256dh, auth, userAgent: req.headers.get("user-agent")?.slice(0, 200) },
     update: { userId: user.id, p256dh, auth },
   });
+  await commitWrites();
   return NextResponse.json({ ok: true });
 }

@@ -14,7 +14,7 @@ export const HELP: HelpArticle[] = [
   {
     id: "about",
     title: "What is Sarkari Sathi?",
-    keywords: ["what", "about", "app", "who", "made", "built", "pranay", "creator", "developer", "owner"],
+    keywords: ["about", "made", "built", "pranay", "creator", "developer", "owner", "sathi", "sarkari"],
     answer:
       "Sarkari Sathi is a free preparation app for Indian government exam aspirants, built by **Pranay**. It covers 20 exams across Banking, Railways, SSC, RBI, Insurance and Intelligence/Police with full mocks, previous-year pattern papers, cut-offs, a syllabus tracker, a study planner, analytics and reminders.",
   },

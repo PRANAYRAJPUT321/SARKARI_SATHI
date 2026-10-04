@@ -87,6 +87,31 @@ export async function syncIfStale(base: PrismaClient, maxAgeMs: number) {
   if (await download()) await migrate(base);
 }
 
+/**
+ * Read-your-writes across serverless functions: the browser carries the version of the
+ * last upload it caused (cookie); a function holding an older copy downloads the newer one.
+ */
+export async function syncToVersion(base: PrismaClient, version: number) {
+  if (!SYNC || !version || version <= localVersion) return;
+  await ensureDatabase(base);
+  if (version <= localVersion) return;
+  await base.$disconnect();
+  if (await download()) await migrate(base);
+  localVersion = Math.max(localVersion, version);
+}
+
+/** Upload pending writes right away and return the new version (used before redirects). */
+export async function persistNow(base: PrismaClient): Promise<number> {
+  if (!SYNC) return 0;
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+  chain = chain.then(() => flush(base)).catch((e) => console.error("[db-sync] upload failed", e));
+  await chain;
+  return localVersion;
+}
+
 /** Force a fresh copy (used by scheduled jobs, which may run on a different instance). */
 export async function refreshDatabase(base: PrismaClient) {
   lastHead = 0;

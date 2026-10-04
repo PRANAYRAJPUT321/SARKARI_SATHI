@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { examBySlug, PYP_YEARS } from "@/data/exams";
 import { TOPICS, topicById } from "@/data/syllabus";
-import { createSession, destroySession, requireUser } from "@/lib/auth";
+import { commitWrites, createSession, destroySession, requireUser } from "@/lib/auth";
 import { addDays, dayKey, daysBetween, istStart } from "@/lib/dates";
 import { prisma } from "@/lib/db";
 import { gradePaper, xpFor, type Response } from "@/lib/grading";
@@ -41,6 +41,7 @@ export async function registerAction(_: FormState, form: FormData): Promise<Form
     },
   });
   await notify(user.id, `Welcome to Sarkari Sathi, ${name.split(" ")[0]}! 🎉`, "Start with the Daily Challenge, mark the topics you already know in the Syllabus Tracker, and generate your study plan in the Planner.", "achievement", "/dashboard");
+  await commitWrites();
   await createSession(user.id);
   redirect("/dashboard");
 }
@@ -48,7 +49,12 @@ export async function registerAction(_: FormState, form: FormData): Promise<Form
 export async function loginAction(_: FormState, form: FormData): Promise<FormState> {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
-  const user = await prisma.user.findUnique({ where: { email } });
+  let user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    // the account may have been created on another server instance – refresh once
+    await prisma.refresh();
+    user = await prisma.user.findUnique({ where: { email } });
+  }
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) return { error: "Invalid email or password." };
   await createSession(user.id);
   redirect("/dashboard");
@@ -67,6 +73,7 @@ export async function updateProfileAction(_: FormState, form: FormData): Promise
   const goal = Number(form.get("dailyGoal") ?? 4);
   if (name.length < 2) return { error: "Name is too short." };
   await prisma.user.update({ where: { id: user.id }, data: { name, category, dailyGoalMin: Math.min(12, Math.max(1, goal)) * 60 } });
+  await commitWrites();
   revalidatePath("/", "layout");
   return {};
 }
@@ -84,6 +91,7 @@ export async function saveTargetsAction(targets: { slug: string; date: string | 
       }),
     ),
   ]);
+  await commitWrites();
   revalidatePath("/", "layout");
 }
 
@@ -96,6 +104,7 @@ export async function addTargetAction(slug: string) {
     create: { userId: user.id, examSlug: slug, primary: count === 0 },
     update: {},
   });
+  await commitWrites();
   revalidatePath("/", "layout");
 }
 
@@ -109,6 +118,7 @@ export async function setTopicStatusAction(topicId: string, status: string) {
     update: { status },
   });
   if (status === "mastered") await prisma.user.update({ where: { id: user.id }, data: { xp: { increment: 15 } } });
+  await commitWrites();
   revalidatePath("/syllabus");
   revalidatePath("/dashboard");
 }
@@ -154,6 +164,7 @@ export async function startTestAction(spec: StartSpec) {
       maxScore: paper.sections.reduce((acc, s) => acc + s.marksPer * s.questions.length, 0),
     },
   });
+  await commitWrites();
   redirect(`/test/${a.id}`);
 }
 
@@ -199,12 +210,14 @@ export async function submitTestAction(attemptId: string, responses: Response[])
     where: { userId: user.id, type: "mock", done: false, date: { gte: start, lt: new Date(start.getTime() + 86400000) }, examSlug: a.examSlug },
     data: { done: true },
   });
+  await commitWrites();
   redirect(`/results/${a.id}`);
 }
 
 export async function abandonTestAction(attemptId: string) {
   const user = await requireUser();
   await prisma.attempt.deleteMany({ where: { id: attemptId, userId: user.id, status: "in_progress" } });
+  await commitWrites();
   redirect("/mocks");
 }
 
@@ -215,6 +228,7 @@ export async function logStudyAction(minutes: number, kind = "focus") {
   if (m <= 0 || m > 240) return;
   await prisma.studySession.create({ data: { userId: user.id, day: dayKey(), minutes: m, kind } });
   await prisma.user.update({ where: { id: user.id }, data: { xp: { increment: Math.round(m / 5) } } });
+  await commitWrites();
   revalidatePath("/dashboard");
 }
 
@@ -226,6 +240,7 @@ export async function addTaskAction(input: { date: string; time?: string; title:
   await prisma.plannerTask.create({
     data: { userId: user.id, date, title: input.title.trim().slice(0, 140), type: input.type, examSlug: input.examSlug || null, durationMin: input.durationMin ?? 60 },
   });
+  await commitWrites();
   revalidatePath("/planner");
   revalidatePath("/dashboard");
 }
@@ -236,6 +251,7 @@ export async function toggleTaskAction(id: string) {
   if (!t) return;
   await prisma.plannerTask.update({ where: { id }, data: { done: !t.done } });
   if (!t.done) await prisma.user.update({ where: { id: user.id }, data: { xp: { increment: 10 } } });
+  await commitWrites();
   revalidatePath("/planner");
   revalidatePath("/dashboard");
 }
@@ -243,6 +259,7 @@ export async function toggleTaskAction(id: string) {
 export async function deleteTaskAction(id: string) {
   const user = await requireUser();
   await prisma.plannerTask.deleteMany({ where: { id, userId: user.id } });
+  await commitWrites();
   revalidatePath("/planner");
   revalidatePath("/dashboard");
 }
@@ -301,6 +318,7 @@ export async function autoPlanAction(input: { examSlug: string; examDate: string
   const upcoming = rows.filter((r) => r.date > now); // today's slots that already passed are skipped
   await prisma.plannerTask.createMany({ data: upcoming });
   await notify(user.id, `🗓️ Study plan created for ${exam.short}`, `${upcoming.length} tasks scheduled over ${total} days. Check your Planner every morning!`, "info", "/planner");
+  await commitWrites();
   revalidatePath("/planner");
   revalidatePath("/dashboard");
   return { ok: true, count: upcoming.length };
@@ -310,6 +328,7 @@ export async function autoPlanAction(input: { examSlug: string; examDate: string
 export async function markNotificationReadAction(id?: string) {
   const user = await requireUser();
   await prisma.notification.updateMany({ where: { userId: user.id, ...(id ? { id } : {}) }, data: { read: true } });
+  await commitWrites();
   revalidatePath("/", "layout");
 }
 
@@ -319,6 +338,7 @@ export async function toggleBookmarkAction(attemptId: string, qid: string) {
   const existing = await prisma.bookmark.findUnique({ where: { userId_key: { userId: user.id, key } } });
   if (existing) {
     await prisma.bookmark.delete({ where: { id: existing.id } });
+    await commitWrites();
     revalidatePath("/bookmarks");
     return false;
   }
@@ -328,6 +348,7 @@ export async function toggleBookmarkAction(attemptId: string, qid: string) {
   const q = paper.sections.flatMap((s) => s.questions).find((x) => x.id === qid);
   if (!q) return false;
   await prisma.bookmark.create({ data: { userId: user.id, key, question: JSON.stringify(q) } });
+  await commitWrites();
   revalidatePath("/bookmarks");
   return true;
 }
@@ -335,6 +356,7 @@ export async function toggleBookmarkAction(attemptId: string, qid: string) {
 export async function deleteAccountDataAction() {
   const user = await requireUser();
   await prisma.user.delete({ where: { id: user.id } });
+  await prisma.persistNow();
   await destroySession();
   redirect("/");
 }
@@ -345,6 +367,7 @@ export async function updatePushPrefsAction(prefs: { morningPush?: boolean; task
     where: { id: user.id },
     data: { ...(typeof prefs.morningPush === "boolean" ? { morningPush: prefs.morningPush } : {}), ...(typeof prefs.taskPush === "boolean" ? { taskPush: prefs.taskPush } : {}) },
   });
+  await commitWrites();
   revalidatePath("/notifications");
   revalidatePath("/profile");
 }

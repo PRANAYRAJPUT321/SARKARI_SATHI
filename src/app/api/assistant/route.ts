@@ -35,34 +35,46 @@ function limited(ip: string) {
 
 function fallback(question: string) {
   const found = searchHelp(question);
-  if (!found.length)
+  if (!found.length || !question.match(/app|sathi|sarkari|install|notif|mock|test|report|planner|plan|syllabus|cut|exam|date|marking|negative|login|sign|account|theme|dark|streak|xp|practice|daily|topic|flashcard|bookmark|profile|focus|timer|calendar|reminder|guide|pyp|paper|score|analytics|dashboard/i))
     return "I can help with anything about Sarkari Sathi – installing the app, notifications, mock tests, reports, the planner, syllabus tracker, cut-offs and exam dates. Try asking, for example, “How do I install the app?” or “How does negative marking work?”";
   return found.map((a, i) => (i === 0 ? a.answer : `\n\n**Related – ${a.title}:** ${a.answer}`)).join("");
 }
 
-async function askClaude(messages: Msg[]) {
-  const apiKey = process.env.AI_GATEWAY_API_KEY || (await getVercelOidcToken().catch(() => undefined));
-  if (!apiKey) return null;
-  const client = new Anthropic({ apiKey, baseURL: "https://ai-gateway.vercel.sh", maxRetries: 1, timeout: 45_000 });
-  for (const model of MODELS) {
-    try {
-      const res = await client.messages.create({
-        model,
-        max_tokens: 2000,
-        output_config: { effort: "low" },
-        system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
-        messages,
-      });
-      if (res.stop_reason === "refusal") return null;
-      const text = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
-      if (text) return text;
-    } catch (e) {
-      if (e instanceof Anthropic.NotFoundError || e instanceof Anthropic.BadRequestError) continue; // try the next model id
-      console.error("[assistant] gateway error", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e);
-      return null;
+async function askClaude(messages: Msg[]): Promise<{ text: string | null; diag: string }> {
+  const gatewayKey = process.env.AI_GATEWAY_API_KEY;
+  const oidc = gatewayKey ? undefined : await getVercelOidcToken().catch(() => undefined);
+  const token = gatewayKey || oidc;
+  if (!token) return { text: null, diag: "no-token" };
+  // The gateway accepts the token as a Bearer token; fall back to the x-api-key header.
+  const clients = [
+    new Anthropic({ authToken: token, apiKey: null, baseURL: "https://ai-gateway.vercel.sh", maxRetries: 1, timeout: 45_000 }),
+    new Anthropic({ apiKey: token, baseURL: "https://ai-gateway.vercel.sh", maxRetries: 1, timeout: 45_000 }),
+  ];
+  let diag = "unknown";
+  for (const client of clients) {
+    for (const model of MODELS) {
+      try {
+        const res = await client.messages.create({
+          model,
+          max_tokens: 2000,
+          output_config: { effort: "low" },
+          system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
+          messages,
+        });
+        if (res.stop_reason === "refusal") return { text: null, diag: "refusal" };
+        const text = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
+        if (text) return { text, diag: "ok" };
+        diag = "empty";
+      } catch (e) {
+        diag = e instanceof Anthropic.APIError ? `gateway-${e.status ?? "conn"}` : "error";
+        console.error("[assistant]", model, diag, e instanceof Anthropic.APIError ? e.message : e);
+        if (e instanceof Anthropic.NotFoundError || e instanceof Anthropic.BadRequestError) continue; // try the next model id
+        if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) break; // try the other auth header
+        return { text: null, diag };
+      }
     }
   }
-  return null;
+  return { text: null, diag };
 }
 
 export async function POST(req: Request) {
@@ -77,6 +89,6 @@ export async function POST(req: Request) {
   if (!last || last.role !== "user") return NextResponse.json({ error: "Ask a question" }, { status: 400 });
   if (limited(ip)) return NextResponse.json({ reply: "You're asking very quickly – please wait a few minutes and try again. 🙏", source: "limit" });
   const ai = await askClaude(messages);
-  if (ai) return NextResponse.json({ reply: ai, source: "ai" });
-  return NextResponse.json({ reply: fallback(last.content), source: "help" });
+  if (ai.text) return NextResponse.json({ reply: ai.text, source: "ai" });
+  return NextResponse.json({ reply: fallback(last.content), source: "help", diag: ai.diag });
 }

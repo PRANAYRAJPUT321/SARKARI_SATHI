@@ -11,7 +11,12 @@ export async function notify(userId: string, title: string, body: string, kind =
 export async function ensureDailyNotifications(userId: string) {
   const today = dayKey();
   const start = istStart(today);
-  const existing = await prisma.notification.findMany({ where: { userId, createdAt: { gte: start } }, select: { title: true } });
+  let existing = await prisma.notification.findMany({ where: { userId, createdAt: { gte: start } }, select: { title: true } });
+  if (!existing.length) {
+    // first visit of the day on this server instance: make sure we have the latest copy before creating reminders
+    await prisma.refresh();
+    existing = await prisma.notification.findMany({ where: { userId, createdAt: { gte: start } }, select: { title: true } });
+  }
   const have = new Set(existing.map((e) => e.title));
   const add = async (title: string, body: string, kind: string, link?: string) => {
     if (have.has(title)) return;
