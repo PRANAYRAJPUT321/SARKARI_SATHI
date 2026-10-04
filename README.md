@@ -37,11 +37,14 @@ npm run dev                   # http://localhost:3000
 
 Production: `npm run build && npm start`.
 
-### Deploying (e.g. Vercel)
-SQLite files don't persist on serverless platforms. Use a hosted Postgres (Neon, Supabase, Vercel Postgres):
-1. In `prisma/schema.prisma` change `provider = "sqlite"` to `provider = "postgresql"`.
-2. Set `DATABASE_URL` and `AUTH_SECRET` environment variables.
-3. Run `npx prisma db push` once against the production database.
+### Deploying on Vercel
+The live app runs on Vercel without an external database:
+
+- `DATABASE_URL=file:/tmp/sarkari.db` – SQLite in the function's writable `/tmp`.
+- A **private Vercel Blob store** connected to the project (`BLOB_READ_WRITE_TOKEN`). `src/lib/db-sync.ts` restores the database file from Blob on a cold start (or creates it from the generated schema) and uploads a consistent `VACUUM INTO` snapshot shortly after writes.
+- `AUTH_SECRET` – any long random string.
+
+This is ideal for a personal/low-traffic deployment. For many concurrent users, switch to a hosted Postgres (Neon / Prisma Postgres via the Vercel Marketplace): change `provider` to `postgresql` in `prisma/schema.prisma`, set `DATABASE_URL`, remove the absolute file path, and run `npx prisma db push`.
 
 ## Project structure
 
