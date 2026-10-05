@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC = ["/", "/login", "/register"];
+const PUBLIC = ["/", "/login", "/register", "/admin"]; // /admin checks its own password
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

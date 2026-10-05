@@ -41,6 +41,21 @@ export function WeeklyBars({ data, goal }: { data: { label: string; minutes: num
   );
 }
 
+/** One bar per day for a simple count (admin usage page). */
+export function DailyCountBars({ data, one, many }: { data: { day: string; label: string; count: number }[]; one: string; many: string }) {
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart data={data} margin={{ top: 10, right: 8, left: -24, bottom: 0 }} barCategoryGap="18%">
+        <CartesianGrid stroke="var(--grid)" vertical={false} />
+        <XAxis dataKey="label" {...axis} minTickGap={18} />
+        <YAxis {...axis} allowDecimals={false} />
+        <Tooltip cursor={{ fill: "var(--surface-2)" }} content={<Tip fmt={(p, v) => (<><div className="font-semibold">{String(p.label)}</div><div>{v} {v === 1 ? one : many}</div></>)} />} />
+        <Bar dataKey="count" fill="var(--s1)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function SubjectRadar({ data }: { data: { subject: string; accuracy: number; coverage: number }[] }) {
   return (
     <ResponsiveContainer width="100%" height={260}>

@@ -9,6 +9,7 @@ export const SCHEMA_SQL: string[] = [
   "CREATE TABLE IF NOT EXISTS \"Notification\" (\n    \"id\" TEXT NOT NULL PRIMARY KEY,\n    \"userId\" TEXT NOT NULL,\n    \"title\" TEXT NOT NULL,\n    \"body\" TEXT NOT NULL,\n    \"kind\" TEXT NOT NULL DEFAULT 'info',\n    \"link\" TEXT,\n    \"read\" BOOLEAN NOT NULL DEFAULT false,\n    \"createdAt\" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    CONSTRAINT \"Notification_userId_fkey\" FOREIGN KEY (\"userId\") REFERENCES \"User\" (\"id\") ON DELETE CASCADE ON UPDATE CASCADE\n)",
   "CREATE TABLE IF NOT EXISTS \"Bookmark\" (\n    \"id\" TEXT NOT NULL PRIMARY KEY,\n    \"userId\" TEXT NOT NULL,\n    \"key\" TEXT NOT NULL,\n    \"question\" TEXT NOT NULL,\n    \"note\" TEXT,\n    \"createdAt\" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    CONSTRAINT \"Bookmark_userId_fkey\" FOREIGN KEY (\"userId\") REFERENCES \"User\" (\"id\") ON DELETE CASCADE ON UPDATE CASCADE\n)",
   "CREATE TABLE IF NOT EXISTS \"PushSubscription\" (\n    \"id\" TEXT NOT NULL PRIMARY KEY,\n    \"userId\" TEXT NOT NULL,\n    \"endpoint\" TEXT NOT NULL,\n    \"p256dh\" TEXT NOT NULL,\n    \"auth\" TEXT NOT NULL,\n    \"userAgent\" TEXT,\n    \"createdAt\" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    CONSTRAINT \"PushSubscription_userId_fkey\" FOREIGN KEY (\"userId\") REFERENCES \"User\" (\"id\") ON DELETE CASCADE ON UPDATE CASCADE\n)",
+  "CREATE TABLE IF NOT EXISTS \"ActiveDay\" (\n    \"id\" TEXT NOT NULL PRIMARY KEY,\n    \"userId\" TEXT NOT NULL,\n    \"day\" TEXT NOT NULL,\n    CONSTRAINT \"ActiveDay_userId_fkey\" FOREIGN KEY (\"userId\") REFERENCES \"User\" (\"id\") ON DELETE CASCADE ON UPDATE CASCADE\n)",
   "CREATE UNIQUE INDEX IF NOT EXISTS \"User_email_key\" ON \"User\"(\"email\")",
   "CREATE UNIQUE INDEX IF NOT EXISTS \"ExamTarget_userId_examSlug_key\" ON \"ExamTarget\"(\"userId\", \"examSlug\")",
   "CREATE UNIQUE INDEX IF NOT EXISTS \"TopicProgress_userId_topicId_key\" ON \"TopicProgress\"(\"userId\", \"topicId\")",
@@ -18,5 +19,7 @@ export const SCHEMA_SQL: string[] = [
   "CREATE INDEX IF NOT EXISTS \"Notification_userId_read_idx\" ON \"Notification\"(\"userId\", \"read\")",
   "CREATE UNIQUE INDEX IF NOT EXISTS \"Bookmark_userId_key_key\" ON \"Bookmark\"(\"userId\", \"key\")",
   "CREATE UNIQUE INDEX IF NOT EXISTS \"PushSubscription_endpoint_key\" ON \"PushSubscription\"(\"endpoint\")",
-  "CREATE INDEX IF NOT EXISTS \"PushSubscription_userId_idx\" ON \"PushSubscription\"(\"userId\")"
+  "CREATE INDEX IF NOT EXISTS \"PushSubscription_userId_idx\" ON \"PushSubscription\"(\"userId\")",
+  "CREATE INDEX IF NOT EXISTS \"ActiveDay_day_idx\" ON \"ActiveDay\"(\"day\")",
+  "CREATE UNIQUE INDEX IF NOT EXISTS \"ActiveDay_userId_day_key\" ON \"ActiveDay\"(\"userId\", \"day\")"
 ];

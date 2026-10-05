@@ -3,6 +3,7 @@ import { jwtVerify, SignJWT } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { recordActive } from "./activity";
 import { prisma } from "./db";
 
 export const SESSION_COOKIE = "ss_session";
@@ -47,6 +48,7 @@ export const currentUser = cache(async () => {
     await prisma.refresh();
     user = await find();
   }
+  if (user) await recordActive(user.id);
   return user;
 });
 

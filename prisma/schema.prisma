@@ -27,6 +27,7 @@ model User {
   notifications Notification[]
   bookmarks     Bookmark[]
   pushSubs      PushSubscription[]
+  activeDays    ActiveDay[]
 }
 
 model ExamTarget {
@@ -142,4 +143,15 @@ model PushSubscription {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// One row per student per day (IST) they opened the app – used for the admin usage page.
+model ActiveDay {
+  id     String @id @default(cuid())
+  userId String
+  day    String // YYYY-MM-DD (IST)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@index([day])
 }

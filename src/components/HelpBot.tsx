@@ -51,7 +51,7 @@ export function HelpBot() {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => end.current?.scrollIntoView({ behavior: "smooth" }), [msgs, busy]);
 
-  if (pathname?.startsWith("/test/")) return null;
+  if (pathname?.startsWith("/test/") || pathname?.startsWith("/admin")) return null;
   const inApp = !["/", "/login", "/register"].includes(pathname ?? "");
 
   const ask = async (q: string) => {
