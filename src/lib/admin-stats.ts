@@ -1,6 +1,7 @@
 import "server-only";
 import { examBySlug } from "@/data/exams";
 import { prisma } from "./db";
+import { syncDiagnostics } from "./db-sync";
 import { addDays, dayKey, istStart, prettyDate } from "./dates";
 
 /** Accounts created by automated checks – hidden from the numbers unless asked for. */
@@ -108,6 +109,7 @@ export async function usageStats({ includeTests = false } = {}) {
       test: testIds.has(u.id),
     })),
     hiddenTests: includeTests ? 0 : testIds.size,
+    backup: await syncDiagnostics(),
     visitsTrackedSince: firstVisit ? prettyDate(istStart(firstVisit.day)) : null,
   };
 }

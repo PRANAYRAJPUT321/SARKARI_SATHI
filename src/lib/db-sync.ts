@@ -1,5 +1,5 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import { BlobPreconditionFailedError, get as blobGet, head as blobHead, put as blobPut } from "@vercel/blob";
@@ -57,12 +57,15 @@ function fakeBlob(dir: string) {
       const m = await meta();
       if (!m) return null;
       const buf = await fs.readFile(data);
-      return { statusCode: 200, stream: new Response(buf).body, headers: new Headers(), blob: { ...m, uploadedAt: new Date(m.uploadedAt), contentType: "application/octet-stream", size: buf.length } };
+      // like the real CDN: the ETag header is not the API's ETag, and Last-Modified has second precision
+      const etag = `W/"${createHash("sha1").update(m.etag).digest("hex").slice(0, 12)}"`;
+      const uploadedAt = new Date(Math.floor(Date.parse(m.uploadedAt) / 1000) * 1000);
+      return { statusCode: 200, stream: new Response(buf).body, headers: new Headers(), blob: { etag, uploadedAt, contentType: "application/octet-stream", size: buf.length } };
     },
     async head() {
       const m = await meta();
       if (!m) throw new Error("not found");
-      return { ...m, uploadedAt: new Date(m.uploadedAt) };
+      return { ...m, uploadedAt: new Date(m.uploadedAt), size: (await fs.stat(data)).size };
     },
     async put(_path: string, body: Buffer, opts: { ifMatch?: string; allowOverwrite?: boolean }) {
       return withLock(async () => {
@@ -93,6 +96,14 @@ let lastHead = 0;
 let inFlight = 0;
 let journal: JournalEntry[] = [];
 let lock: Promise<void> = Promise.resolve();
+// what this server instance has done – shown on the admin page
+const diag = { startedAt: Date.now(), downloads: 0, uploads: 0, merges: 0, lastUploadAt: 0, versionCheck: "", lastError: "", lastErrorAt: 0 };
+const noteError = (e: unknown) => {
+  diag.lastError = String((e as Error)?.message ?? e).slice(0, 200);
+  diag.lastErrorAt = Date.now();
+};
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const normEtag = (e: string) => e.replace(/^W\//, "").replace(/"/g, "");
 
 export const syncEnabled = SYNC;
 export const newId = () => `c${Date.now().toString(36)}${randomBytes(8).toString("hex")}`;
@@ -130,18 +141,41 @@ export function ensureDatabase(base: PrismaClient): Promise<void> | undefined {
   return ready;
 }
 
+/**
+ * Fetch the latest copy. Uploads are checked against the API's ETag, but a download carries the
+ * CDN's ETag header, which can be formatted differently – so the bytes are paired with the API's
+ * view of the blob, read before and after the download. If the two can't be tied together, the
+ * download's own ETag is kept: a later upload then fails safely and retries instead of overwriting.
+ */
 async function download(): Promise<boolean> {
-  const res = await get(BLOB_PATH, { access: "private", useCache: false }).catch(() => null);
-  if (!res || res.statusCode !== 200 || !res.stream) return false;
-  const buf = Buffer.from(await new Response(res.stream).arrayBuffer());
-  const tmp = `${FILE}.download`;
-  await fs.writeFile(tmp, buf);
-  await fs.rm(`${FILE}-journal`, { force: true });
-  await fs.rename(tmp, FILE!);
-  baseEtag = res.blob.etag;
-  localVersion = new Date(res.blob.uploadedAt).getTime();
-  lastHead = Date.now();
-  return true;
+  for (let attempt = 0; ; attempt++) {
+    const before = await head(BLOB_PATH).catch(() => null);
+    const res = await get(BLOB_PATH, { access: "private", useCache: false }).catch((e) => {
+      noteError(e);
+      return null;
+    });
+    if (!res || res.statusCode !== 200 || !res.stream) return false;
+    const buf = Buffer.from(await new Response(res.stream).arrayBuffer());
+    const after = await head(BLOB_PATH).catch(() => null);
+    const stable = Boolean(before && after && before.etag === after.etag);
+    const sameEtag = Boolean(after && normEtag(after.etag) === normEtag(res.blob.etag));
+    const sameTime = stable && Math.floor(after!.uploadedAt.getTime() / 1000) === Math.floor(new Date(res.blob.uploadedAt).getTime() / 1000);
+    const matched = sameEtag || sameTime;
+    if (!matched && after && attempt < 3) {
+      await sleep(400); // an upload landed meanwhile, or the copy was stale – fetch again
+      continue;
+    }
+    const tmp = `${FILE}.download`;
+    await fs.writeFile(tmp, buf);
+    await fs.rm(`${FILE}-journal`, { force: true });
+    await fs.rename(tmp, FILE!);
+    baseEtag = matched ? after!.etag : res.blob.etag;
+    localVersion = (matched ? after!.uploadedAt : new Date(res.blob.uploadedAt)).getTime();
+    lastHead = Date.now();
+    diag.downloads++;
+    diag.versionCheck = sameEtag ? "etag" : sameTime ? "time" : after ? "unmatched" : "no-head";
+    return true;
+  }
 }
 
 async function init(base: PrismaClient) {
@@ -230,15 +264,21 @@ export async function refreshDatabase(base: PrismaClient) {
 }
 
 let timer: ReturnType<typeof setTimeout> | null = null;
+let timerDone: (() => void) | null = null; // settles the waitUntil promise of a cancelled timer
 let chain: Promise<void> = Promise.resolve();
 
 /** Mark the DB as changed. `urgent` writes are uploaded after a short debounce; others ride along with the next one. */
 export function schedulePersist(base: PrismaClient, urgent: boolean) {
   if (!SYNC || !urgent || timer) return;
   const done = new Promise<void>((resolve) => {
+    timerDone = resolve;
     timer = setTimeout(() => {
       timer = null;
-      chain = chain.then(() => flush(base)).catch((e) => console.error("[db-sync] upload failed", e));
+      timerDone = null;
+      chain = chain.then(() => flush(base)).catch((e) => {
+        noteError(e);
+        console.error("[db-sync] upload failed", e);
+      });
       chain.then(resolve, resolve);
     }, 1200);
   });
@@ -256,8 +296,14 @@ export async function persistNow(base: PrismaClient): Promise<number> {
     clearTimeout(timer);
     timer = null;
   }
-  chain = chain.then(() => flush(base)).catch((e) => console.error("[db-sync] upload failed", e));
+  const settle = timerDone;
+  timerDone = null;
+  chain = chain.then(() => flush(base)).catch((e) => {
+    noteError(e);
+    console.error("[db-sync] upload failed", e);
+  });
   await chain;
+  settle?.();
   return localVersion;
 }
 
@@ -280,6 +326,8 @@ async function flush(base: PrismaClient) {
       });
       baseEtag = res.etag;
       journal = journal.slice(count);
+      diag.uploads++;
+      diag.lastUploadAt = Date.now();
       const meta = await head(BLOB_PATH).catch(() => null);
       localVersion = meta && meta.etag === res.etag ? new Date(meta.uploadedAt).getTime() : Math.max(localVersion, Date.now());
       lastHead = Date.now();
@@ -287,8 +335,24 @@ async function flush(base: PrismaClient) {
     } catch (e) {
       const conflict = e instanceof BlobPreconditionFailedError || (!baseEtag && /exist/i.test((e as Error).message ?? ""));
       if (!conflict) throw e;
+      diag.merges++;
       await rebase(base); // someone else uploaded first – merge and retry
     }
   }
   throw new Error("db-sync: could not upload after repeated conflicts");
+}
+
+/** Health of the cloud copy as seen from this server instance (admin page). */
+export async function syncDiagnostics() {
+  if (!SYNC) return null;
+  const cloud = await head(BLOB_PATH).catch((e) => ({ error: String((e as Error)?.message ?? e).slice(0, 200) }));
+  const ok = "etag" in cloud;
+  return {
+    cloudSavedAt: ok ? cloud.uploadedAt.getTime() : null,
+    cloudSize: ok ? cloud.size : null,
+    cloudError: ok ? null : cloud.error,
+    upToDate: ok ? cloud.etag === baseEtag : null,
+    pending: journal.length,
+    ...diag,
+  };
 }

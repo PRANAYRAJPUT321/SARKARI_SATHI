@@ -1,4 +1,4 @@
-import { Activity, BellRing, CalendarCheck, ClipboardCheck, Clock, Database, Lock, LogOut, UserPlus, Users } from "lucide-react";
+import { Activity, AlertTriangle, BellRing, CalendarCheck, CheckCircle2, ClipboardCheck, Clock, CloudUpload, Database, Lock, LogOut, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { DailyCountBars } from "@/components/charts";
@@ -6,11 +6,63 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Card, Stat } from "@/components/ui";
 import { adminConfigured, isAdmin } from "@/lib/admin";
 import { usageStats, type DayCount } from "@/lib/admin-stats";
+import { prettyDate } from "@/lib/dates";
 import { adminLoginAction, adminLogoutAction } from "./actions";
 
 export const metadata = { title: "Admin", robots: { index: false, follow: false } };
 
 const num = (n: number) => n.toLocaleString("en-IN");
+
+function ago(ms: number) {
+  const min = Math.round((Date.now() - ms) / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min ago`;
+  const h = Math.round(min / 60);
+  return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
+}
+const when = (ms: number) => prettyDate(new Date(ms), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+
+type Backup = NonNullable<Awaited<ReturnType<typeof usageStats>>["backup"]>;
+
+/** Is student data reaching the cloud copy? Status always carries an icon and a label. */
+function BackupCard({ b }: { b: Backup }) {
+  const failing = Boolean(b.cloudError) || (b.lastErrorAt > b.lastUploadAt && Date.now() - b.lastErrorAt < 24 * 3600_000);
+  const status = failing
+    ? { icon: <AlertTriangle size={18} />, label: "Needs attention", color: "var(--critical)" }
+    : b.pending > 0
+      ? { icon: <CloudUpload size={18} />, label: "Saving…", color: "var(--warning)" }
+      : { icon: <CheckCircle2 size={18} />, label: "Healthy", color: "var(--good)" };
+  return (
+    <Card title="Cloud backup" subtitle="Student data is copied to Vercel Blob after every change">
+      <div className="flex items-center gap-2 font-bold" style={{ color: status.color }}>
+        {status.icon}
+        <span className="text-[var(--ink)]">{status.label}</span>
+      </div>
+      <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+        <div>
+          <dt className="faint text-xs font-semibold uppercase tracking-wide">Last saved to cloud</dt>
+          <dd className="mt-0.5">{b.cloudSavedAt ? <>{ago(b.cloudSavedAt)} <span className="muted">· {when(b.cloudSavedAt)}{b.cloudSize ? ` · ${Math.round(b.cloudSize / 1024)} KB` : ""}</span></> : "Not saved yet"}</dd>
+        </div>
+        <div>
+          <dt className="faint text-xs font-semibold uppercase tracking-wide">This server&apos;s copy</dt>
+          <dd className="mt-0.5">{b.upToDate === null ? "–" : b.upToDate ? "Up to date" : "Behind the cloud (refreshes on the next visit)"}</dd>
+        </div>
+        <div>
+          <dt className="faint text-xs font-semibold uppercase tracking-wide">Changes waiting to upload</dt>
+          <dd className="mt-0.5 tabular-nums">{b.pending}</dd>
+        </div>
+      </dl>
+      {failing && (
+        <p className="mt-3 rounded-xl bg-[var(--surface-2)] p-3 text-sm">
+          <b>Last problem{b.lastErrorAt ? ` (${when(b.lastErrorAt)})` : ""}:</b> {b.cloudError ?? b.lastError}
+        </p>
+      )}
+      <p className="faint mt-3 text-[11px]">
+        This server: started {ago(b.startedAt)} · {b.downloads} downloads · {b.uploads} uploads · {b.merges} merges · version check: {b.versionCheck || "–"}
+      </p>
+    </Card>
+  );
+}
 
 function Brand({ sub }: { sub: string }) {
   return (
@@ -200,6 +252,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           )}
         </Card>
       </div>
+
+      {s.backup && (
+        <div className="mt-4">
+          <BackupCard b={s.backup} />
+        </div>
+      )}
 
       <div className="card mt-4 flex gap-3 p-4 text-sm">
         <Database size={18} className="mt-0.5 shrink-0 text-brand-600 dark:text-brand-300" />
