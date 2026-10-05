@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { beginQuery, endQuery, ensureDatabase, journalWrite, newId, persistNow, refreshDatabase, schedulePersist, syncEnabled, syncIfStale, syncToVersion } from "./db-sync";
+import { beginQuery, endQuery, ensureDatabase, journalWrite, newId, persistNow, refreshDatabase, schedulePersist, syncDiagnostics, syncEnabled, syncIfStale, syncToVersion } from "./db-sync";
 
 const WRITES = new Set(["create", "createMany", "createManyAndReturn", "update", "updateMany", "upsert", "delete", "deleteMany"]);
 
@@ -42,6 +42,8 @@ function createClient() {
     refresh: () => refreshDatabase(base),
     persistNow: () => persistNow(base),
     syncTo: (version: number) => syncToVersion(base, version),
+    // read through the client so it reports the sync state that belongs to it (see the note below)
+    syncStatus: () => syncDiagnostics(),
   });
 }
 
